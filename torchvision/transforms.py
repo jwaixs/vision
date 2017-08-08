@@ -12,6 +12,8 @@ import numbers
 import types
 import collections
 
+import numpy as np
+
 
 class Compose(object):
     """Composes several transforms together.
@@ -312,7 +314,14 @@ class RandomCrop(object):
 
 
 class RandomHorizontalFlip(object):
-    """Horizontally flip the given PIL.Image randomly with a probability of 0.5."""
+    """Horizontally flip the given PIL.Image randomly with a probability of prop_threshold.
+
+    Args:
+        prop_threshold: Propbability to flip image horizontal. (Default: 0.5)
+    """
+
+    def __init__(self, prop_threshold = 0.5):
+        self.prop_threshold = prop_threshold
 
     def __call__(self, img):
         """
@@ -322,32 +331,69 @@ class RandomHorizontalFlip(object):
         Returns:
             PIL.Image: Randomly flipped image.
         """
-        if random.random() < 0.5:
+        if random.random() < self.prop_threshold:
             return img.transpose(Image.FLIP_LEFT_RIGHT)
         return img
+
+class RandomVerticalFlip(object):
+    """Vertical flip the given PIL.Image randomly with a probability of prop_threshold.
+
+    Args:
+        prop_threshold: Propbability to flip image vertical. (Default: 0.5)
+    """
+
+    def __init__(self, prop_threshold = 0.5):
+        self.prop_threshold = prop_threshold
+
+    def __call__(self, img):
+        """
+        Args:
+            img (PIL.Image): Image to be flipped.
+
+        Returns:
+            PIL.Image: Randomly flipped image.
+        """
+        if random.random() < self.prop_threshold:
+            return img.transpose(Image.FLIP_TOP_BOTTOM)
+        return img
+
+class RandomRotate(object):
+    """Rotate the given PIL.Image with random angle.
+
+    Args:
+        max_angle: maximum random angle in degrees. (Default: 10 degrees)
+    """
+    def __init__(self, max_angle = 10):
+        self.max_angle = max_angle
+
+    def __call__(self, img):
+        angle = (2*random.random() - 1) * self.max_angle
+        return img.rotate(angle, expand = 0)
 
 
 class RandomSizedCrop(object):
     """Crop the given PIL.Image to random size and aspect ratio.
 
-    A crop of random size of (0.08 to 1.0) of the original size and a random
-    aspect ratio of 3/4 to 4/3 of the original aspect ratio is made. This crop
-    is finally resized to given size.
+    A crop of random size of random_size (0.08 to 1.0 by default) of the
+    original size and a random aspect ratio of 3/4 to 4/3 of the original
+    aspect ratio is made. This crop is finally resized to given size.
     This is popularly used to train the Inception networks.
 
     Args:
         size: size of the smaller edge
         interpolation: Default: PIL.Image.BILINEAR
+        random_size: Default: (0.08, 1.0)
     """
 
-    def __init__(self, size, interpolation=Image.BILINEAR):
+    def __init__(self, size, interpolation=Image.BILINEAR, random_size=(0.08, 1.0)):
         self.size = size
         self.interpolation = interpolation
+        self.random_size = random_size
 
     def __call__(self, img):
         for attempt in range(10):
             area = img.size[0] * img.size[1]
-            target_area = random.uniform(0.08, 1.0) * area
+            target_area = random.uniform(self.random_size[0], self.random_size[1]) * area
             aspect_ratio = random.uniform(3. / 4, 4. / 3)
 
             w = int(round(math.sqrt(target_area * aspect_ratio)))
@@ -363,9 +409,118 @@ class RandomSizedCrop(object):
                 img = img.crop((x1, y1, x1 + w, y1 + h))
                 assert(img.size == (w, h))
 
-                return img.resize((self.size, self.size), self.interpolation)
+                return img.resize((self.size[0], self.size[1]), self.interpolation)
 
         # Fallback
         scale = Scale(self.size, interpolation=self.interpolation)
         crop = CenterCrop(self.size)
         return crop(scale(img))
+
+class RandomShear(object):
+    """Shear the given PIL.Image with a shearing coefficient.
+
+    Given shear coefficeints alpha and beta, the pixels subjected to the following
+    mapping:
+
+        (x, y) |--> ((1 - alpha) * x + alpha * y, beta * x + (1 - beta) * y)
+
+    Args:
+        max_hor_shear: maximal horizontal shearing coefficient. (Default: 0.2)
+        max_ver_shear: maximal vertical shearing coefficient. (Default: 0.2)
+        interpolation: (Default: Image.NEAREST)
+    """
+    def __init__(self, max_hor_shear = 0.2, max_ver_shear = 0.2, interpolation = Image.NEAREST):
+        self.max_hor_shear = max_hor_shear
+        self.max_ver_shear = max_ver_shear
+        self.interpolation = interpolation
+
+    def __call__(self, img):
+        alpha = self.max_hor_shear * (2*random.random() - 1)
+        beta = self.max_ver_shear * (2*random.random() - 1)
+        return img.transform(img.size, Image.AFFINE, ((1 - alpha), alpha, 0, beta, (1 - beta), 0), resample = self.interpolation)
+
+class GammaIntensity(object):
+    """Change intensity of given PIL.Image to given gamma. The function
+
+        x |--> gamma * x
+
+    is applied on each value of the image.
+
+    Args:
+        gamma: Default: 1.0.
+    """
+    def __init__(self, gamma = 1.0):
+        self.gamma = gamma
+        self.f = lambda x : gamma * x
+
+    def __call__(self, img):
+        return img.point(self.f)
+
+class RandomGammaIntensity(object):
+    """Change the intensity of a given PIL.Image to a random gamma value between
+    min_gamma and max_gamma. If no_gamma_prob is given there is a chance given
+    by no_gamma_prob where we don't apply the new gamma intensity.
+
+    Args:
+        min_gamma: minimal value of gamma. (Default: 0.7)
+        max_gamma: maximal value of gamma. (Default: 1.3)
+        no_gamma_prob: chance gamma intensity is not applied. (Default: None)
+    """
+    def __init__(self, min_gamma = 0.7, max_gamma = 1.3, no_gamma_prob = None):
+        self.min_gamma = min_gamma
+        self.max_gamma = max_gamma
+        self.no_gamma_prob = no_gamma_prob
+
+    def __call__(self, img):
+        if self.no_gamma_prob and random.random() < self.no_gamma_prob:
+            return img
+        else:
+            gamma = random.random() * abs(self.max_gamma - self.min_gamma) + self.min_gamma
+            f = lambda x : gamma * x
+            return img.point(f)
+
+class GaussianNoise(object):
+    """Add Gaussian noise to a give PIL.Image.
+
+    Args:
+        mu: mean or expectation of the distribution.
+        sigma: standard deviation.
+        buffer_size: caches this ammount of noise. (Default 2**8)
+        noise_change_rate: Change noise after this many patches. (Default: 1)
+        random_rescale_sigma: Randomly take sigmas between 0 and sigma. (Default: False)
+    """
+    def __init__(self, mu, sigma, buffer_size = 2**8, noise_change_rate = 1, random_rescale_sigma = False):
+        self.mu = mu
+        self.sigma = sigma
+        self.buffer_size = buffer_size
+        self.random_rescale_sigma = random_rescale_sigma
+        self.noise_change_rate = noise_change_rate
+        self.index = 0
+        self._prepare_noise_image()
+
+    def _prepare_noise_image(self):
+        self.side = int(self.buffer_size**(0.5))
+        sigma = self.sigma
+        if self.random_rescale_sigma:
+            sigma *= random.random()
+        self.noise_buffer = np.random.normal(self.mu, sigma, self.side**2)
+        self.noise_image = Image.new("L", (self.side, self.side))
+        self.noise_image.putdata(self.noise_buffer)
+
+    def _get_noise_image(self, image_size):
+        if np.prod(image_size) > self.buffer_size:
+            self.buffer_size = np.max(image_size)**2
+            self._prepare_noise_image()
+
+        if self.index % self.noise_change_rate == 0:
+            self._prepare_noise_image()
+            self.index = 0
+
+        return self.noise_image.crop((0, 0, image_size[0], image_size[1]))
+
+    def __call__(self, img):
+        self.index += 1
+        noise_img = self._get_noise_image(img.size)
+        noise_img.convert(img.mode)
+        new_image = Image.blend(img, noise_img, 0.5)
+        return new_image.point(lambda x : 2*x)
