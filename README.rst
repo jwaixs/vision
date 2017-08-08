@@ -1,3 +1,6 @@
+This is a non-official fork of tochvision, containing a couple of extra
+functionalities.
+
 torch-vision
 ============
 
