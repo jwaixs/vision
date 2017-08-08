@@ -259,7 +259,7 @@ class Lambda(object):
     """Apply a user-defined lambda as a transform.
 
     Args:
-        lambd (function): Lambda/function to be used for transform.
+        lambda (function): Lambda/function to be used for transform.
     """
 
     def __init__(self, lambd):
