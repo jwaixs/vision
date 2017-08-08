@@ -23,18 +23,6 @@ This repository consists of:
 Installation
 ============
 
-Anaconda:
-
-.. code:: bash
-
-    conda install torchvision -c soumith
-
-pip:
-
-.. code:: bash
-
-    pip install torchvision
-
 From source:
 
 .. code:: bash
