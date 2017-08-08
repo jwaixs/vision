@@ -479,48 +479,29 @@ class RandomGammaIntensity(object):
             f = lambda x : gamma * x
             return img.point(f)
 
+
 class GaussianNoise(object):
-    """Add Gaussian noise to a give PIL.Image.
+    """Add Gaussian noise to a given PIL.Image.
 
     Args:
-        mu: mean or expectation of the distribution.
-        sigma: standard deviation.
-        buffer_size: caches this ammount of noise. (Default 2**8)
-        noise_change_rate: Change noise after this many patches. (Default: 1)
-        random_rescale_sigma: Randomly take sigmas between 0 and sigma. (Default: False)
+        mu: expectation of the Guassian distribution. (Default: 0)
+        sigma: standard deviation. (Default: 10)
+        apply_sigma_variation: variate sigma uniform between 0 and sigma.
+                               (Default: False)
     """
-    def __init__(self, mu, sigma, buffer_size = 2**8, noise_change_rate = 1, random_rescale_sigma = False):
+    def __init__(self, mu = 0, sigma = 10, apply_sigma_variation = False):
         self.mu = mu
         self.sigma = sigma
-        self.buffer_size = buffer_size
-        self.random_rescale_sigma = random_rescale_sigma
-        self.noise_change_rate = noise_change_rate
-        self.index = 0
-        self._prepare_noise_image()
-
-    def _prepare_noise_image(self):
-        self.side = int(self.buffer_size**(0.5))
-        sigma = self.sigma
-        if self.random_rescale_sigma:
-            sigma *= random.random()
-        self.noise_buffer = np.random.normal(self.mu, sigma, self.side**2)
-        self.noise_image = Image.new("L", (self.side, self.side))
-        self.noise_image.putdata(self.noise_buffer)
-
-    def _get_noise_image(self, image_size):
-        if np.prod(image_size) > self.buffer_size:
-            self.buffer_size = np.max(image_size)**2
-            self._prepare_noise_image()
-
-        if self.index % self.noise_change_rate == 0:
-            self._prepare_noise_image()
-            self.index = 0
-
-        return self.noise_image.crop((0, 0, image_size[0], image_size[1]))
+        self.apply_sigma_variation = apply_sigma_variation
 
     def __call__(self, img):
-        self.index += 1
-        noise_img = self._get_noise_image(img.size)
-        noise_img.convert(img.mode)
-        new_image = Image.blend(img, noise_img, 0.5)
-        return new_image.point(lambda x : 2*x)
+        size = img.size
+        sigma = self.sigma
+        if self.apply_sigma_variation:
+            sigma *= random.random()
+        noise = np.random.normal(self.mu, sigma, np.prod(size))
+        noise_img = Image.new('L', size)
+        noise_img.putdata(noise)
+        noise_img = noise_img.convert(img.mode)
+        merge_img = Image.blend(img, noise_img, 0.5)
+        return merge_img.point(lambda x : 2*x)
