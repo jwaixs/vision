@@ -2,7 +2,7 @@ from __future__ import division
 import torch
 import math
 import random
-from PIL import Image, ImageOps
+from PIL import Image, ImageOps, ImageEnhance, ImageFilter
 try:
     import accimage
 except ImportError:
@@ -11,8 +11,6 @@ import numpy as np
 import numbers
 import types
 import collections
-
-import numpy as np
 
 
 class Compose(object):
@@ -505,3 +503,39 @@ class GaussianNoise(object):
         noise_img = noise_img.convert(img.mode)
         merge_img = Image.blend(img, noise_img, 0.5)
         return merge_img.point(lambda x : 2*x)
+
+class RandomBlur(object):
+    """Blur given PIL.Image with a uniform chosen radius for the kernel.
+
+    Args:
+        min_radius: lowest value of the kernel radius. (Default: 1)
+        max_radius: heighest value of the kernel radius. (Default: 3)
+    """
+    def __init__(self, min_radius = 1, max_radius = 3):
+        self.min_radius = min_radius
+        self.max_radius = max_radius
+
+    def __call__(self, img):
+        radius = (self.max_radius - self.min_radius) * random.random()\
+                + self.min_radius
+        kernel = ImageFilter.GaussianBlur(radius = radius)
+        return img.filter(kernel)
+
+class RandomSharpen(object):
+    """Sharpen given PIL.Image. The sharpen factor is chosen uniform between
+    min_sharpen and max_sharpen. A factor of 1.0 gives the original image, a
+    factor above 1.0 sharpens the image.
+
+    Args:
+        min_sharpen: lowest value for the sharpen factor. (Default: 1)
+        max_sharpen: heighest value for the sharpen factor. (Default: 2)
+    """
+    def __init__(self, min_sharpen = 1, max_sharpen = 2):
+        self.min_sharpen = min_sharpen
+        self.max_sharpen = max_sharpen
+
+    def __call__(self, img):
+        sharpener = ImageEnhance.Sharpness(img)
+        factor = (self.max_sharpen - self.min_sharpen) * random.random()\
+                + self.min_sharpen
+        return sharpener.enhance(factor)
