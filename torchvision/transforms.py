@@ -169,10 +169,10 @@ class Scale(object):
             i.e, if height > width, then image will be rescaled to
             (size * height / width, size)
         interpolation (int, optional): Desired interpolation. Default is
-            ``PIL.Image.BILINEAR``
+            ``PIL.Image.NEAREST``
     """
 
-    def __init__(self, size, interpolation=Image.BILINEAR):
+    def __init__(self, size, interpolation=Image.NEAREST):
         assert isinstance(size, int) or (isinstance(size, collections.Iterable) and len(size) == 2)
         self.size = size
         self.interpolation = interpolation
@@ -381,11 +381,11 @@ class RandomSizedCrop(object):
 
     Args:
         size: size of the smaller edge
-        interpolation: Default: PIL.Image.BILINEAR
+        interpolation: Default: PIL.Image.NEAREST
         random_size: Default: (0.08, 1.0)
     """
 
-    def __init__(self, size, interpolation=Image.BILINEAR, random_size=(0.08, 1.0)):
+    def __init__(self, size, interpolation=Image.NEAREST, random_size=(0.08, 1.0)):
         self.size = size
         self.interpolation = interpolation
         self.random_size = random_size
