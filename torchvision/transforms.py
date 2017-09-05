@@ -84,6 +84,38 @@ class ToTensor(object):
         else:
             return img
 
+class ToNumpy(object):
+    """Convert an object to a numpy array.
+
+    Mainly designed to convert a PIL image or a torch Variable to a numpy array.
+    """
+
+    def __call__(self, x):
+        """Convert object to numpy array.
+
+        Args:
+            x (PIL.Image or Variable): Input to be converted to numpy array.
+
+        Returns:
+            numpy array: Converted numpy array.
+        """
+        if isinstance(x, np.ndarray):
+            return x
+
+        elif isinstance(x, torch.FloatTensor):
+            return x.numpy()
+
+        elif isinstance(x, torch.autograd.variable.Variable):
+            return x.cpu().data.numpy()
+
+        elif isinstance(x, Image.Image):
+            return np.array(x)
+
+        else:
+            raise NotImplementedError(
+                'Cannot convert type {} to numpy array'.format(type(x))
+            )
+
 
 class ToPILImage(object):
     """Convert a tensor to PIL Image.
