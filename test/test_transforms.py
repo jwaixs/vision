@@ -287,6 +287,24 @@ class Tester(unittest.TestCase):
         assert img.mode == 'I'
         assert np.allclose(img, img_data[:, :, 0])
 
+    def test_to_numpy(self):
+        trans = transforms.ToNumpy()
+
+        x = torch.FloatTensor(3, 5)
+        self.assertTrue(isinstance(trans(x), np.ndarray))
+
+        y = torch.autograd.Variable(x)
+        self.assertTrue(isinstance(trans(y), np.ndarray))
+
+        if torch.cuda.is_available():
+            z = torch.autograd.Variable(x.cuda())
+            self.assertTrue(isinstance(trans(z), np.ndarray))
+
+        img_data = Image.open(GRACE_HOPPER).convert('RGB')
+        self.assertTrue(isinstance(trans(img_data), np.ndarray))
+
+        s = 'Failing string'
+        self.assertRaises(NotImplementedError, trans, s)
 
 if __name__ == '__main__':
     unittest.main()
